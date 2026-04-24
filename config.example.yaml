@@ -1,21 +1,36 @@
-# Example configuration for the price drop monitor.
-# Values will be finalized as config parsing and runtime behavior are implemented.
+# Example configuration for the fixture-backed price drop monitor.
 
-checkIntervalSeconds: 300
+database:
+  path: data/price-history.sqlite
+
+priceSource:
+  type: fixture-html
+
+scheduler:
+  intervalSeconds: 300
+  runOnStartup: true
+  maxConcurrentChecks: 2
+
+dropDetection:
+  minPercentDrop: 5
+  minAbsoluteDropCents: 100
 
 notification:
-  method: log
+  type: console
 
-priceDropThreshold:
-  percent: 5
+server:
+  port: 3000
 
 products:
   - id: example-1
     name: Example Product 1
-    url: fixtures/products/example-1.html
+    url: https://www.amazon.com/dp/EXAMPLE1
+    fixturePath: fixtures/products/example-1.html
   - id: example-2
     name: Example Product 2
-    url: fixtures/products/example-2.html
+    url: https://www.amazon.com/dp/EXAMPLE2
+    fixturePath: fixtures/products/example-2.html
   - id: example-3
     name: Example Product 3
-    url: fixtures/products/example-3.html
+    url: https://www.amazon.com/dp/EXAMPLE3
+    fixturePath: fixtures/products/example-3.html
