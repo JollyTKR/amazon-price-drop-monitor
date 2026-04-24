@@ -1,0 +1,32 @@
+{
+  "name": "amazon-price-drop-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fixture-backed Amazon-like price drop monitor take-home project.",
+  "scripts": {
+    "dev": "tsx watch src/cli/dev.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "check:once": "tsx src/cli/check-once.ts",
+    "db:init": "tsx src/cli/db-init.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "cheerio": "^1.2.0",
+    "fastify": "^5.8.5",
+    "p-limit": "^7.3.0",
+    "pino": "^10.3.1",
+    "yaml": "^2.8.3",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

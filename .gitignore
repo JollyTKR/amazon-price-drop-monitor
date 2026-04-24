@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.vitest/
+.codex
+
+data/*.db
+data/*.db-*
+*.sqlite
+*.sqlite3
+
+.env
+.env.*
+!.env.example
+
+AGENTS.md
+TECHNICAL-PLAN.md

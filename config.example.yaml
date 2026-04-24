@@ -1,0 +1,21 @@
+# Example configuration for the price drop monitor.
+# Values will be finalized as config parsing and runtime behavior are implemented.
+
+checkIntervalSeconds: 300
+
+notification:
+  method: log
+
+priceDropThreshold:
+  percent: 5
+
+products:
+  - id: example-1
+    name: Example Product 1
+    url: fixtures/products/example-1.html
+  - id: example-2
+    name: Example Product 2
+    url: fixtures/products/example-2.html
+  - id: example-3
+    name: Example Product 3
+    url: fixtures/products/example-3.html
