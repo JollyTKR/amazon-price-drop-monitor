@@ -73,6 +73,12 @@ npm run test
 npm run build
 ```
 
+`npm run db:init` reads `config.example.yaml` by default and creates or updates the configured SQLite database schema. Pass another config path as an argument when using a local config file:
+
+```bash
+npm run db:init -- config.yaml
+```
+
 ## Compliance Note
 
 This project does not implement live Amazon scraping. The default price source uses local fixture files that resemble product pages for demonstration and testing. A production version would use a compliant data provider behind the same `PriceSource` interface.
