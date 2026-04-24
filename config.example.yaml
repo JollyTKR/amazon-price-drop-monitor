@@ -23,14 +23,14 @@ server:
 
 products:
   - id: example-1
-    name: Example Product 1
+    name: Compact Mechanical Keyboard
     url: https://www.amazon.com/dp/EXAMPLE1
-    fixturePath: fixtures/products/example-1.html
+    fixturePath: fixtures/keyboard.html
   - id: example-2
-    name: Example Product 2
+    name: USB-C Hub
     url: https://www.amazon.com/dp/EXAMPLE2
-    fixturePath: fixtures/products/example-2.html
+    fixturePath: fixtures/usb-hub.html
   - id: example-3
-    name: Example Product 3
+    name: Large Desk Mat
     url: https://www.amazon.com/dp/EXAMPLE3
-    fixturePath: fixtures/products/example-3.html
+    fixturePath: fixtures/desk-mat.html

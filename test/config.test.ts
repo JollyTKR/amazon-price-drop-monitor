@@ -55,7 +55,7 @@ describe("config validation", () => {
       products: expect.arrayContaining([
         expect.objectContaining({
           id: "example-1",
-          fixturePath: "fixtures/products/example-1.html",
+          fixturePath: "fixtures/keyboard.html",
         }),
       ]),
     });

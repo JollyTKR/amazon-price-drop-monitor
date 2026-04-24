@@ -38,6 +38,30 @@ export interface ProductConfig {
   fixturePath: string;
 }
 
+export interface CurrentPrice {
+  productId: string;
+  priceCents: number;
+  currency: "USD";
+  source: PriceSourceType;
+  fetchedAt: Date;
+}
+
+export type PriceFailureReason = "price-not-found" | "malformed-price" | "fixture-read-failed";
+
+export interface PriceSourceSuccess {
+  ok: true;
+  price: CurrentPrice;
+}
+
+export interface PriceSourceFailure {
+  ok: false;
+  productId: string;
+  reason: PriceFailureReason;
+  message: string;
+}
+
+export type PriceSourceResult = PriceSourceSuccess | PriceSourceFailure;
+
 export interface AppConfig {
   database: DatabaseConfig;
   priceSource: PriceSourceConfig;
