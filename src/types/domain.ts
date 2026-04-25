@@ -46,7 +46,11 @@ export interface CurrentPrice {
   fetchedAt: Date;
 }
 
-export type PriceFailureReason = "price-not-found" | "malformed-price" | "fixture-read-failed";
+export type PriceFailureReason =
+  | "price-not-found"
+  | "malformed-price"
+  | "fixture-read-failed"
+  | "fixture-state-invalid";
 
 export interface PriceSourceSuccess {
   ok: true;

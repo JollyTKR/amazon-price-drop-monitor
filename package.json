@@ -9,7 +9,8 @@
     "build": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "check:once": "tsx src/cli/checkOnce.ts",
-    "db:init": "tsx src/cli/db-init.ts"
+    "db:init": "tsx src/cli/db-init.ts",
+    "demo:drop": "tsx src/cli/demoDrop.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

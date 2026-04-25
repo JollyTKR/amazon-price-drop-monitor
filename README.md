@@ -85,6 +85,18 @@ http://127.0.0.1:3000
 npm run db:init -- config.yaml
 ```
 
+## Demo Flow Draft
+
+To simulate a deterministic price drop for the keyboard fixture:
+
+```bash
+npm run check:once
+npm run demo:drop
+npm run check:once
+```
+
+The first check records the baseline price. The demo command writes local fixture state under `data/`, and the second check reads the lower keyboard fixture and should emit a console notification.
+
 ## Compliance Note
 
 This project does not implement live Amazon scraping. The default price source uses local fixture files that resemble product pages for demonstration and testing. A production version would use a compliant data provider behind the same `PriceSource` interface.
