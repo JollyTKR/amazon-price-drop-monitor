@@ -139,8 +139,21 @@ export function installGracefulShutdown(runtime: AppRuntime, logger: AppLogger =
 
 if (isMainModule()) {
   const configPath = process.argv[2] ?? "config.example.yaml";
-  const runtime = await startApp(configPath);
-  installGracefulShutdown(runtime);
+  try {
+    const runtime = await startApp(configPath);
+    installGracefulShutdown(runtime);
+  } catch (error) {
+    defaultLogger.error(
+      {
+        event: "app_start_failed",
+        configPath,
+        status: "failure",
+        errorMessage: getErrorMessage(error),
+      },
+      "Application failed to start",
+    );
+    process.exit(1);
+  }
 }
 
 function isMainModule(): boolean {

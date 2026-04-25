@@ -71,6 +71,9 @@ export class Scheduler {
           event: "scheduler_tick_skipped",
           trigger,
           reason: "previous_run_still_active",
+          status: "skipped",
+          checkedAt: new Date().toISOString(),
+          errorMessage: "Previous monitor run is still active",
         },
         "Scheduler tick skipped because previous run is still active",
       );
@@ -88,6 +91,7 @@ export class Scheduler {
             trigger,
             started_at: startedAt,
             completed_at: new Date().toISOString(),
+            status: "success",
           },
           "Scheduler tick completed",
         );
@@ -98,7 +102,9 @@ export class Scheduler {
             event: "scheduler_tick_failed",
             trigger,
             started_at: startedAt,
-            error_message: getErrorMessage(error),
+            checkedAt: new Date().toISOString(),
+            status: "failure",
+            errorMessage: getErrorMessage(error),
           },
           "Scheduler tick failed",
         );

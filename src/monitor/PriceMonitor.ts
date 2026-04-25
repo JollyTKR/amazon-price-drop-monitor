@@ -4,7 +4,11 @@ import type { Logger } from "pino";
 import { detectPriceDrop } from "./PriceDropDetector.js";
 import type { NotificationResult, Notifier } from "../notification/Notifier.js";
 import type { PriceSource } from "../price-source/PriceSource.js";
-import type { PriceHistoryRepository } from "../storage/PriceHistoryRepository.js";
+import type {
+  PriceHistoryRepository,
+  RecordNotificationInput,
+  RecordPriceCheckInput,
+} from "../storage/PriceHistoryRepository.js";
 import type { AppConfig, ProductConfig } from "../types/domain.js";
 
 export interface PriceMonitorDependencies {
@@ -65,8 +69,13 @@ export class PriceMonitor {
       logger.error(
         {
           event: "price_check_failed",
-          product_id: productId,
-          error_message: errorMessage,
+          productId,
+          productName: product?.name ?? "unknown",
+          productUrl: product?.url ?? "unknown",
+          source: config.priceSource.type,
+          checkedAt: new Date().toISOString(),
+          status: "failure",
+          errorMessage,
         },
         "Price check failed unexpectedly",
       );
@@ -107,26 +116,44 @@ export class PriceMonitor {
   }
 
   private async checkProduct(product: ProductConfig): Promise<ProductCheckResult> {
-    const { config, priceSource, repository, notifier, logger } = this.dependencies;
+    const { config, priceSource, repository, logger } = this.dependencies;
 
     logger.info(
       {
         event: "price_check_started",
-        product_id: product.id,
-        product_name: product.name,
-        product_url: product.url,
+        productId: product.id,
+        productName: product.name,
+        productUrl: product.url,
         source: config.priceSource.type,
+        checkedAt: new Date().toISOString(),
+        status: "started",
       },
       "Price check started",
     );
 
-    const currentPriceResult = await priceSource.getCurrentPrice(product);
-    const previousPriceCheck = repository.getLatestSuccessfulPriceCheck(product.id);
+    let currentPriceResult: Awaited<ReturnType<PriceSource["getCurrentPrice"]>>;
+
+    try {
+      currentPriceResult = await priceSource.getCurrentPrice(product);
+    } catch (error) {
+      return this.handleUnexpectedProductFailure(product, error);
+    }
+
+    let previousPriceCheck: ReturnType<PriceHistoryRepository["getLatestSuccessfulPriceCheck"]>;
+
+    try {
+      previousPriceCheck = repository.getLatestSuccessfulPriceCheck(product.id);
+    } catch (error) {
+      return this.handleUnexpectedProductFailure(product, error, {
+        currentPriceCents: currentPriceResult.ok ? currentPriceResult.price.priceCents : null,
+        currency: currentPriceResult.ok ? currentPriceResult.price.currency : null,
+      });
+    }
 
     if (!currentPriceResult.ok) {
       const checkedAt = new Date().toISOString();
 
-      repository.recordPriceCheck({
+      const recorded = this.tryRecordPriceCheck({
         productId: product.id,
         productName: product.name,
         productUrl: product.url,
@@ -141,13 +168,15 @@ export class PriceMonitor {
       logger.warn(
         {
           event: "price_check_failed",
-          product_id: product.id,
-          product_name: product.name,
-          product_url: product.url,
+          productId: product.id,
+          productName: product.name,
+          productUrl: product.url,
           source: config.priceSource.type,
           reason: currentPriceResult.reason,
-          error_message: currentPriceResult.message,
-          checked_at: checkedAt,
+          errorMessage: currentPriceResult.message,
+          checkedAt,
+          status: "failure",
+          persisted: recorded,
         },
         "Price check failed",
       );
@@ -160,7 +189,7 @@ export class PriceMonitor {
     }
 
     const checkedAt = currentPriceResult.price.fetchedAt.toISOString();
-    repository.recordPriceCheck({
+    const recorded = this.tryRecordPriceCheck({
       productId: product.id,
       productName: product.name,
       productUrl: product.url,
@@ -170,6 +199,14 @@ export class PriceMonitor {
       status: "success",
       source: currentPriceResult.price.source,
     });
+
+    if (!recorded) {
+      return {
+        productId: product.id,
+        status: "failure",
+        errorMessage: "Price check succeeded but could not be persisted",
+      };
+    }
 
     let notificationStatus: ProductCheckResult["notificationStatus"];
 
@@ -189,13 +226,16 @@ export class PriceMonitor {
         logger.info(
           {
             event: "price_drop_detected",
-            product_id: product.id,
-            product_name: product.name,
-            previous_price_cents: dropEvent.previousPriceCents,
-            current_price_cents: dropEvent.currentPriceCents,
-            drop_amount_cents: dropEvent.dropAmountCents,
-            drop_percent: dropEvent.dropPercent,
-            checked_at: checkedAt,
+            productId: product.id,
+            productName: product.name,
+            productUrl: product.url,
+            source: currentPriceResult.price.source,
+            checkedAt,
+            status: "detected",
+            previousPriceCents: dropEvent.previousPriceCents,
+            currentPriceCents: dropEvent.currentPriceCents,
+            dropAmountCents: dropEvent.dropAmountCents,
+            dropPercent: dropEvent.dropPercent,
           },
           "Price drop detected",
         );
@@ -203,7 +243,7 @@ export class PriceMonitor {
         const notificationResult = await this.sendNotification(dropEvent);
         notificationStatus = notificationResult.status;
 
-        repository.recordNotification({
+        const notificationRecorded = this.tryRecordNotification({
           productId: dropEvent.productId,
           productName: dropEvent.productName,
           previousPriceCents: dropEvent.previousPriceCents,
@@ -218,14 +258,19 @@ export class PriceMonitor {
         logger[notificationResult.status === "sent" ? "info" : "error"](
           {
             event: notificationResult.status === "sent" ? "notification_sent" : "notification_failed",
-            product_id: product.id,
-            product_name: product.name,
-            previous_price_cents: dropEvent.previousPriceCents,
-            current_price_cents: dropEvent.currentPriceCents,
-            drop_amount_cents: dropEvent.dropAmountCents,
-            drop_percent: dropEvent.dropPercent,
-            sent_at: notificationResult.sentAt,
-            error_message: notificationResult.errorMessage,
+            productId: product.id,
+            productName: product.name,
+            productUrl: product.url,
+            source: currentPriceResult.price.source,
+            checkedAt,
+            status: notificationResult.status,
+            previousPriceCents: dropEvent.previousPriceCents,
+            currentPriceCents: dropEvent.currentPriceCents,
+            dropAmountCents: dropEvent.dropAmountCents,
+            dropPercent: dropEvent.dropPercent,
+            sentAt: notificationResult.sentAt,
+            errorMessage: notificationResult.errorMessage,
+            persisted: notificationRecorded,
           },
           notificationResult.status === "sent" ? "Notification sent" : "Notification failed",
         );
@@ -235,14 +280,16 @@ export class PriceMonitor {
     logger.info(
       {
         event: "price_check_succeeded",
-        product_id: product.id,
-        product_name: product.name,
-        product_url: product.url,
-        price_cents: currentPriceResult.price.priceCents,
+        productId: product.id,
+        productName: product.name,
+        productUrl: product.url,
+        priceCents: currentPriceResult.price.priceCents,
         currency: currentPriceResult.price.currency,
-        previous_price_cents: previousPriceCheck?.priceCents ?? null,
+        previousPriceCents: previousPriceCheck?.priceCents ?? null,
         source: currentPriceResult.price.source,
-        checked_at: checkedAt,
+        checkedAt,
+        status: "success",
+        persisted: true,
       },
       "Price check succeeded",
     );
@@ -272,8 +319,103 @@ export class PriceMonitor {
       };
     }
   }
+
+  private tryRecordPriceCheck(input: RecordPriceCheckInput): boolean {
+    try {
+      this.dependencies.repository.recordPriceCheck(input);
+      return true;
+    } catch (error) {
+      this.dependencies.logger.error(
+        {
+          event: "price_check_record_failed",
+          productId: input.productId,
+          productName: input.productName,
+          productUrl: input.productUrl,
+          source: input.source,
+          checkedAt: toIsoString(input.checkedAt),
+          status: input.status,
+          errorMessage: getErrorMessage(error),
+        },
+        "Failed to persist price check",
+      );
+      return false;
+    }
+  }
+
+  private tryRecordNotification(input: RecordNotificationInput): boolean {
+    try {
+      this.dependencies.repository.recordNotification(input);
+      return true;
+    } catch (error) {
+      this.dependencies.logger.error(
+        {
+          event: "notification_record_failed",
+          productId: input.productId,
+          productName: input.productName,
+          checkedAt: toIsoString(input.sentAt),
+          status: input.status,
+          errorMessage: getErrorMessage(error),
+          previousPriceCents: input.previousPriceCents,
+          currentPriceCents: input.currentPriceCents,
+          dropAmountCents: input.dropAmountCents,
+          dropPercent: input.dropPercent,
+        },
+        "Failed to persist notification result",
+      );
+      return false;
+    }
+  }
+
+  private handleUnexpectedProductFailure(
+    product: ProductConfig,
+    error: unknown,
+    priceDetails: { currentPriceCents: number | null; currency: string | null } = {
+      currentPriceCents: null,
+      currency: null,
+    },
+  ): ProductCheckResult {
+    const { config, logger } = this.dependencies;
+    const checkedAt = new Date().toISOString();
+    const errorMessage = getErrorMessage(error);
+    const recorded = this.tryRecordPriceCheck({
+      productId: product.id,
+      productName: product.name,
+      productUrl: product.url,
+      checkedAt,
+      priceCents: priceDetails.currentPriceCents,
+      currency: priceDetails.currency,
+      status: "failure",
+      errorMessage,
+      source: config.priceSource.type,
+    });
+
+    logger.error(
+      {
+        event: "price_check_failed",
+        productId: product.id,
+        productName: product.name,
+        productUrl: product.url,
+        source: config.priceSource.type,
+        checkedAt,
+        status: "failure",
+        errorMessage,
+        persisted: recorded,
+      },
+      "Price check failed unexpectedly",
+    );
+
+    return {
+      productId: product.id,
+      status: "failure",
+      errorMessage,
+    };
+  }
 }
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : value;
 }

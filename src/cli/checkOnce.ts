@@ -9,24 +9,40 @@ import { FixtureHtmlPriceSource } from "../price-source/FixtureHtmlPriceSource.j
 import { openDatabase, runMigrations } from "../storage/migrations.js";
 import { SqlitePriceHistoryRepository } from "../storage/SqlitePriceHistoryRepository.js";
 
-const configPath = process.argv[2] ?? "config.example.yaml";
-const config = await loadConfig(configPath);
-
-await mkdir(dirname(config.database.path), { recursive: true });
-
-const db = openDatabase(config.database.path);
-runMigrations(db);
-
 try {
-  const monitor = new PriceMonitor({
-    config,
-    priceSource: new FixtureHtmlPriceSource(),
-    repository: new SqlitePriceHistoryRepository(db),
-    notifier: new ConsoleNotifier(),
-    logger,
-  });
+  const configPath = process.argv[2] ?? "config.example.yaml";
+  const config = await loadConfig(configPath);
 
-  await monitor.runOnce();
-} finally {
-  db.close();
+  await mkdir(dirname(config.database.path), { recursive: true });
+
+  const db = openDatabase(config.database.path);
+  runMigrations(db);
+
+  try {
+    const monitor = new PriceMonitor({
+      config,
+      priceSource: new FixtureHtmlPriceSource(),
+      repository: new SqlitePriceHistoryRepository(db),
+      notifier: new ConsoleNotifier(),
+      logger,
+    });
+
+    await monitor.runOnce();
+  } finally {
+    db.close();
+  }
+} catch (error) {
+  logger.error(
+    {
+      event: "check_once_failed",
+      status: "failure",
+      errorMessage: getErrorMessage(error),
+    },
+    "One-time monitor check failed",
+  );
+  process.exit(1);
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
