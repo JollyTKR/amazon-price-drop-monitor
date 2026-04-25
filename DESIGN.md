@@ -1,103 +1,61 @@
-# Design Notes
+# Design
 
-Draft design document for the Amazon price drop monitor take-home project.
+This project is a local TypeScript price drop monitor for a small configured set of Amazon product URLs. It demonstrates the core workflow without live Amazon scraping: load validated YAML config, fetch a price from a `PriceSource`, persist every check in SQLite, compare against the latest successful check, notify on meaningful drops, log structured events, and show history in a simple Fastify dashboard.
 
-## Goal
+## Architecture Overview
 
-Build a small local application that monitors a configured set of Amazon product URLs, records price checks over time, detects price drops, and makes those drops visible to a reviewer.
+The app is split into small layers:
 
-The application should demonstrate configuration, scheduling, storage, comparison, notification, logging, failure handling, and tests without depending on live Amazon scraping.
+- `config`: loads YAML and validates it with Zod.
+- `price-source`: owns the `PriceSource` interface and the fixture-backed HTML implementation.
+- `storage`: owns SQLite migrations and repository methods.
+- `monitor`: coordinates checks, bounded concurrency, failure isolation, and pure price-drop detection.
+- `notification`: owns the notifier interface and console notifier.
+- `web`: serves dashboard/history pages and a JSON history API.
+- `logging`: creates the Pino logger.
+- `cli` and `app.ts`: wire the application together.
 
-## Language Choice
+The monitor checks all configured products with `p-limit`, uses `Promise.allSettled`, records failed checks where possible, and keeps one product failure from stopping the rest of the run.
 
-I am using TypeScript because it is my strongest language. For a time-boxed take-home project, that lets me spend more effort on design, correctness, tests, and documentation instead of fighting the language or tooling.
+## PriceSource Abstraction
 
-TypeScript also works well for this project because the app has several boundaries where explicit types help: parsed config, product definitions, price source results, database rows, comparison decisions, notification payloads, and web responses.
+`PriceSource` exposes `getCurrentPrice(product)`. The monitor does not know whether the price came from local HTML, an approved product API, or another licensed provider.
 
-## Compliance Approach
+The default implementation is `FixtureHtmlPriceSource`, which reads Amazon-like local fixtures and parses realistic selectors such as `.a-price .a-offscreen`, `#priceblock_ourprice`, and `#priceblock_dealprice`. Missing or malformed prices return controlled failure results instead of throwing through the app. This is intentional because live Amazon scraping is not implemented.
 
-The project accepts configured Amazon product URLs, but the default implementation will not fetch live Amazon pages. Instead, it will map configured products to local Amazon-like HTML fixtures and parse those fixtures.
+## Storage Schema
 
-That keeps the project reviewer-friendly while respecting the brief's legal and ethical constraint. The code should make this boundary explicit so it is clear where a compliant production data source would be added.
+SQLite stores two tables:
 
-## Architecture
+- `price_checks`: one row per check, including product id/name/url, checked timestamp, nullable price/currency, status, error message, and source.
+- `notifications`: one row per notification attempt, including product id/name, previous/current prices, drop amount, drop percent, sent timestamp, status, and error message.
 
-The app is organized around separate layers:
+Every successful check is persisted, and expected product-level failures are also persisted as failed `price_checks` when possible. This makes the dashboard and logs useful for debugging.
 
-- `config`: load and validate YAML configuration with Zod.
-- `price-source`: define a `PriceSource` interface and implement a fixture-backed provider.
-- `storage`: initialize SQLite schema and persist price check history.
-- `monitor`: coordinate scheduled checks across configured products.
-- `notification`: send price-drop notifications, starting with console output.
-- `logging`: provide structured logging with Pino.
-- `web`: serve a simple Fastify dashboard/history view.
-- `cli`: expose local commands such as one-time checks, database initialization, and development server startup.
+## Scheduling Approach
 
-The intended check flow is:
+The scheduler is in-process and uses `setInterval`. It supports a configurable interval, optional startup run, and overlap prevention. If a run is still active when the next tick arrives, the scheduler logs `scheduler_tick_skipped` and does not start another run.
 
-1. Load validated configuration.
-2. For each configured product, ask the `PriceSource` for the current price.
-3. Read the most recent stored price for that product.
-4. Compare the previous and current prices using configured threshold rules.
-5. Persist the new price check regardless of whether there is a drop.
-6. Send a notification if the comparison detects a meaningful drop.
-7. Log successful checks, failures, and notification outcomes.
+This keeps the project easy to run locally. It is not intended to provide distributed scheduling or exactly-once semantics.
 
-## Price Source Boundary
+## Notification Approach
 
-`PriceSource` is the key compliance and extensibility boundary. The monitor should not know whether prices came from a local fixture, an approved API, or another licensed provider.
+The first notifier is `ConsoleNotifier`. It prints a readable notification with product name, previous price, current price, drop amount, and drop percent. This was chosen because reviewers can verify it without credentials, API keys, webhooks, or external accounts.
 
-The first implementation will be fixture-backed. A future implementation could add a provider that calls a compliant product data API while keeping the monitor, storage, comparison, notification, and web layers mostly unchanged.
+Notification results are recorded in SQLite. A thrown notification error is converted into a failed notification result so the monitor can continue.
 
-## Storage
+## Tradeoffs
 
-SQLite is the initial storage choice because it is durable, local, easy for reviewers to run, and sufficient for a small set of products. `better-sqlite3` keeps the implementation simple and avoids requiring a separate database server.
+Fixture-backed HTML vs live Amazon scraping/API provider: I chose local fixtures to respect the brief's legal and ethical constraints while still showing parsing, failure handling, and price-drop behavior. The tradeoff is that this does not prove robustness against live Amazon page changes. A production version should add a compliant API-backed `PriceSource`.
 
-The storage layer should persist every check, including enough metadata to distinguish successful checks from failures when appropriate. The final schema will be documented once implemented.
+SQLite vs Postgres: SQLite keeps setup simple and durable for a local review. There is no separate database service, and the schema is easy to inspect. At higher scale, I would move to Postgres for concurrent writers, operational tooling, richer query patterns, and stronger multi-process behavior.
 
-At larger scale, I would revisit this choice and consider Postgres, a queue-backed worker model, and stronger idempotency guarantees around checks and notifications.
+Console/dashboard notification vs email/SMS/Slack: Console notifications and the dashboard are easy to verify locally. They avoid secrets and external dependencies. The tradeoff is that they are not real user delivery channels. Email, SMS, or Slack could be added behind the notifier interface.
 
-## Scheduling
+In-process scheduler vs external scheduler: `setInterval` is enough for a single local process and keeps the implementation readable. It would not be my choice for multiple workers or production reliability. At larger scale, I would use a job queue or external scheduler with leases/idempotency.
 
-The app will use a configurable interval for periodic checks. The first version can use an in-process scheduler because the project is intended to run locally and be easy to inspect.
+## What Would Change At 10x Scale
 
-This is simpler than introducing a job queue or external scheduler for a small take-home project. The tradeoff is that in-process scheduling is not ideal for multi-instance deployments or strict exactly-once behavior.
+At 10x product count or beyond, I would replace SQLite with Postgres, introduce a queue-backed worker model, add per-source rate limiting, add retry/backoff policies, and store stronger idempotency keys for checks and notifications. I would also add a compliant API provider, dashboard pagination, duplicate notification protection across workers, and operational metrics beyond logs.
 
-## Notification Strategy
-
-Console notification is the first notification method because it is easy for a reviewer to verify without credentials, accounts, webhooks, or paid services.
-
-The notification layer should still use an interface so another provider, such as email, Slack, or SMS, can be added later without changing comparison or monitoring logic.
-
-## Web View
-
-Fastify will serve a simple dashboard/history view showing product price history over time. The goal is usability and transparency, not visual polish.
-
-The web layer should read from storage and avoid owning monitoring logic.
-
-## Failure Handling
-
-The monitor should treat each product check independently. A fixture parse failure, missing product, storage error, or notification failure should be logged with useful context and should not crash the entire run unless startup configuration is invalid.
-
-The first implementation will focus on understandable behavior over complex retry machinery. Retries and dead-letter handling are better treated as later production hardening.
-
-## Testing Strategy
-
-The project should include at least one meaningful test per important layer as implementation is added:
-
-- Config validation catches invalid product and threshold settings.
-- Price parsing catches fixture markup changes.
-- Storage persists and reads price history.
-- Comparison logic detects meaningful drops and ignores insignificant changes.
-- Notification provider emits the expected payload.
-- Web/API route returns history in a reviewer-friendly format.
-
-## Known Tradeoffs To Document Later
-
-- SQLite versus Postgres or another server database.
-- In-process scheduling versus an external scheduler or job queue.
-- Console notification versus email, Slack, SMS, or desktop notifications.
-- Fixture-backed HTML parsing versus a compliant paid API provider.
-- How much failure metadata to store for failed checks.
-- How to prevent duplicate notifications if multiple workers run concurrently.
-- How much dashboard polish is worth adding inside the time box.
+The current project intentionally favors a small, understandable local implementation over production infrastructure.

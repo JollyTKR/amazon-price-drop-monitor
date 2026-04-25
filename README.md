@@ -1,93 +1,141 @@
 # Amazon Price Drop Monitor
 
-Draft README for a TypeScript take-home project that monitors configured Amazon product URLs for price drops.
+A TypeScript take-home project that monitors a configured set of Amazon product URLs for price drops. The app is designed around a compliant default workflow: it parses local Amazon-like HTML fixtures, stores durable price history in SQLite, detects meaningful price drops, writes console notifications, and exposes a simple Fastify dashboard.
 
-The default implementation is intentionally fixture-backed. It reads local Amazon-like HTML fixtures instead of scraping live Amazon pages, so the project can demonstrate the monitoring workflow without violating Amazon's terms of service. The fetching/parsing boundary is isolated behind a `PriceSource` abstraction so a compliant product data API or licensed third-party provider could be added later.
+The goal is not to provide production Amazon scraping. The goal is to show clean boundaries, configuration, persistence, scheduling, logging, failure handling, tests, and a reviewer-friendly way to verify the flow end to end.
 
-## Planned Features
+## Legal And Ethical Note
 
-- Monitor multiple configured product URLs.
-- Run periodic price checks on a configurable interval.
-- Store every price check in SQLite so history survives restarts.
-- Detect meaningful price drops using configurable thresholds.
-- Send console notifications first, because they are easy for reviewers to verify locally.
-- Serve a simple Fastify dashboard/history view.
-- Log price checks, notification events, and failures with enough context to debug issues.
-- Keep failures isolated so one bad product check does not stop the monitor.
-- Include focused tests for configuration, price parsing/source behavior, storage, comparison, notification, and web/API behavior as those layers are built.
+This project does not scrape live Amazon pages by default. Live Amazon scraping can violate Amazon's terms of service and is intentionally avoided here.
 
-## Stack
+Configured products include Amazon-style URLs because that is the project domain, but the default `PriceSource` reads local fixture HTML files. A production version should replace that fixture provider with an approved API or licensed third-party data provider behind the same `PriceSource` interface.
 
-- TypeScript
-- Node.js
-- tsx for local development
+## Tech Stack
+
+- TypeScript and Node.js
+- `tsx` for local execution
 - Vitest for tests
-- Fastify for the web UI/API
-- better-sqlite3 for durable local storage
-- Cheerio for parsing fixture HTML
-- Zod and yaml for configuration
-- Pino for structured logging
-- p-limit for bounded concurrent checks
+- Fastify for the dashboard and JSON API
+- SQLite via `better-sqlite3`
+- Cheerio for fixture HTML parsing
+- Zod and `yaml` for validated configuration
+- Pino for structured logs
+- `p-limit` for bounded concurrent checks
 
 ## Project Structure
 
 ```text
 src/
   cli/           CLI entry points
-  config/        configuration loading and validation
-  logging/       logger setup
-  monitor/       scheduling and check orchestration
-  notification/  notification providers
-  price-source/  fixture-backed price source and parser boundary
-  storage/       SQLite schema and repositories
-  types/         shared TypeScript types
-  web/           Fastify dashboard/history routes
-test/            focused tests
+  config/        YAML loading and Zod validation
+  logging/       Pino logger setup
+  monitor/       price-drop detection, monitor workflow, scheduler
+  notification/  notifier interface and console notifier
+  price-source/  PriceSource interface and fixture HTML provider
+  storage/       SQLite migrations and repository
+  types/         shared domain/config types
+  web/           Fastify dashboard and history API
+test/            focused unit and integration-style tests
 fixtures/        local Amazon-like HTML fixtures
-data/            local SQLite database files
+data/            local runtime data, ignored by git
 ```
 
-## Setup
+## Install
 
-Install dependencies:
+Requires Node.js 20 or newer.
 
 ```bash
 npm install
 ```
 
-Copy the example config before running once configuration loading is implemented:
+## Configure
+
+The app reads `config.example.yaml` by default. To make local changes without editing the example:
 
 ```bash
 cp config.example.yaml config.yaml
 ```
 
-## Planned Commands
+Configurable values include:
 
-These scripts are scaffolded now and will be wired up as the implementation is completed:
+- SQLite database path
+- price source type, currently `fixture-html`
+- scheduler interval, startup behavior, and max concurrency
+- price-drop thresholds
+- notification type, currently `console`
+- dashboard port
+- product list
+
+Adding or removing products is a config change. Each product has an `id`, `name`, Amazon-style `url`, and local `fixturePath`.
+
+To use your copied config, pass it after `--`:
 
 ```bash
-npm run dev
-npm run check:once
+npm run check:once -- config.yaml
+npm run dev -- config.yaml
+npm run db:init -- config.yaml
+```
+
+## Initialize The Database
+
+```bash
 npm run db:init
-npm run test
+```
+
+This creates or updates the SQLite schema at the configured `database.path`. By default that is:
+
+```text
+data/price-history.sqlite
+```
+
+SQLite runtime files under `data/` are ignored by git.
+
+## Run Tests
+
+```bash
+npm test
+```
+
+Type-check the project:
+
+```bash
 npm run build
 ```
 
-`npm run dev` starts the in-process scheduler and the Fastify dashboard. By default the dashboard listens at:
+## Run One Check
+
+```bash
+npm run check:once
+```
+
+This loads config, initializes the database schema, checks all configured products once, records each price check, detects drops against the previous successful check, sends console notifications when needed, logs structured events, and exits.
+
+## Run The Scheduler And Dashboard
+
+```bash
+npm run dev
+```
+
+This starts:
+
+- the in-process scheduler
+- the Fastify dashboard
+
+By default the scheduler runs once at startup and then every `scheduler.intervalSeconds`.
+
+Open the dashboard at:
 
 ```text
 http://127.0.0.1:3000
 ```
 
-`npm run db:init` reads `config.example.yaml` by default and creates or updates the configured SQLite database schema. Pass another config path as an argument when using a local config file:
+Stop the app with `Ctrl+C`. The app handles shutdown by stopping the scheduler, closing the web server, and closing SQLite.
 
-```bash
-npm run db:init -- config.yaml
-```
+## Simulate A Price Drop
 
-## Demo Flow Draft
+The deterministic demo flow uses a local fixture override. No external services or API keys are required.
 
-To simulate a deterministic price drop for the keyboard fixture:
+From a clean baseline:
 
 ```bash
 npm run check:once
@@ -95,12 +143,81 @@ npm run demo:drop
 npm run check:once
 ```
 
-The first check records the baseline price. The demo command writes local fixture state under `data/`, and the second check reads the lower keyboard fixture and should emit a console notification.
+What happens:
 
-## Compliance Note
+1. The first check records the baseline keyboard price from `fixtures/keyboard.html`.
+2. `npm run demo:drop` writes `data/demo-fixture-state.json`, overriding the keyboard product to use `fixtures/demo/keyboard-drop.html`.
+3. The second check reads the lower keyboard fixture and emits a console notification.
 
-This project does not implement live Amazon scraping. The default price source uses local fixture files that resemble product pages for demonstration and testing. A production version would use a compliant data provider behind the same `PriceSource` interface.
+The demo command defaults to the keyboard product:
 
-## Status
+```bash
+npm run demo:drop
+```
 
-This repository is being built in small, commit-sized steps. The current docs are drafts and will be finalized after the core application flow is implemented and verified end to end.
+Equivalent explicit form:
+
+```bash
+npm run demo:drop -- keyboard
+```
+
+To reset the demo state, delete the generated local state file:
+
+```bash
+rm data/demo-fixture-state.json
+```
+
+Then run `npm run check:once` again to record fixture prices from the default config. Existing SQLite history remains unless you delete or reinitialize the local database.
+
+## View Price History
+
+Dashboard:
+
+```text
+http://127.0.0.1:3000
+```
+
+Product history page:
+
+```text
+http://127.0.0.1:3000/products/example-1/history
+```
+
+JSON API:
+
+```text
+http://127.0.0.1:3000/api/products/example-1/history
+```
+
+## End-To-End Verification Path
+
+For the clearest reviewer flow:
+
+```bash
+npm install
+npm run db:init
+npm run check:once
+npm run demo:drop
+npm run check:once
+npm run dev
+```
+
+Verify:
+
+- The second `check:once` prints a console notification for the keyboard price drop.
+- Structured logs include price check and notification events.
+- `data/price-history.sqlite` contains durable history.
+- The dashboard at `http://127.0.0.1:3000` shows configured products and latest status.
+- The keyboard history page shows multiple checks over time.
+- The JSON API returns recorded price history.
+
+## Known Limitations
+
+- The default implementation does not scrape live Amazon pages.
+- Only the fixture-backed `PriceSource` is implemented.
+- Only console notifications are implemented.
+- The scheduler is in-process, so it is not suitable for multi-instance deployments.
+- There is no authentication on the local dashboard.
+- Duplicate notification prevention across multiple running processes is not implemented.
+- The HTML dashboard is intentionally simple and server-rendered.
+- SQLite is appropriate for this local take-home scope, but it is not the storage choice I would assume for a larger distributed system.
