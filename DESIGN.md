@@ -40,7 +40,7 @@ This keeps the project easy to run locally. It is not intended to provide distri
 
 ## Notification Approach
 
-The first notifier is `ConsoleNotifier`. It prints a readable notification with product name, previous price, current price, drop amount, and drop percent. This was chosen because reviewers can verify it without credentials, API keys, webhooks, or external accounts.
+The app supports two zero-setup notifiers: `ConsoleNotifier` and `FileNotifier`. Both produce a readable notification with product name, previous price, current price, drop amount, and drop percent. Console output is the default because it is easiest to see while running `check:once`; file output is available when a reviewer wants a durable local notification artifact without external services.
 
 Notification results are recorded in SQLite. A thrown notification error is converted into a failed notification result so the monitor can continue.
 
@@ -50,7 +50,7 @@ Fixture-backed HTML vs live Amazon scraping/API provider: I chose local fixtures
 
 SQLite vs Postgres: SQLite keeps setup simple and durable for a local review. There is no separate database service, and the schema is easy to inspect. At higher scale, I would move to Postgres for concurrent writers, operational tooling, richer query patterns, and stronger multi-process behavior.
 
-Console/dashboard notification vs email/SMS/Slack: Console notifications and the dashboard are easy to verify locally. They avoid secrets and external dependencies. The tradeoff is that they are not real user delivery channels. Email, SMS, or Slack could be added behind the notifier interface.
+Console/file/dashboard notification vs email/SMS/Slack: Console and file notifications plus the dashboard are easy to verify locally. They avoid secrets and external dependencies. The tradeoff is that they are not real user delivery channels. Email, SMS, or Slack could be added behind the notifier interface.
 
 In-process scheduler vs external scheduler: `setInterval` is enough for a single local process and keeps the implementation readable. It would not be my choice for multiple workers or production reliability. At larger scale, I would use a job queue or external scheduler with leases/idempotency.
 

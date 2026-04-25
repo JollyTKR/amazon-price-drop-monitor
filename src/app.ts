@@ -6,7 +6,7 @@ import { loadConfig } from "./config/loadConfig.js";
 import { logger as defaultLogger, type AppLogger } from "./logging/logger.js";
 import { PriceMonitor } from "./monitor/PriceMonitor.js";
 import { Scheduler } from "./monitor/Scheduler.js";
-import { ConsoleNotifier } from "./notification/ConsoleNotifier.js";
+import { createNotifier } from "./notification/createNotifier.js";
 import { FixtureHtmlPriceSource } from "./price-source/FixtureHtmlPriceSource.js";
 import { openDatabase, runMigrations, type SqliteDatabase } from "./storage/migrations.js";
 import { SqlitePriceHistoryRepository } from "./storage/SqlitePriceHistoryRepository.js";
@@ -36,7 +36,7 @@ export async function createApp(
 
   const repository = new SqlitePriceHistoryRepository(db);
   const priceSource = new FixtureHtmlPriceSource();
-  const notifier = new ConsoleNotifier();
+  const notifier = createNotifier(config.notification);
   const monitor = new PriceMonitor({
     config,
     priceSource,

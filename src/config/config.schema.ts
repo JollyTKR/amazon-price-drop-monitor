@@ -48,8 +48,9 @@ export const appConfigSchema = z.object({
   }),
   notification: z.object({
     type: z.enum(NOTIFICATION_TYPES, {
-      error: "notification.type must be console",
+      error: "notification.type must be console or file",
     }),
+    filePath: requiredString("notification.filePath").default("data/notifications.log"),
   }),
   server: z.object({
     port: z

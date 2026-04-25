@@ -4,7 +4,7 @@ import { mkdir } from "node:fs/promises";
 import { loadConfig } from "../config/loadConfig.js";
 import { logger } from "../logging/logger.js";
 import { PriceMonitor } from "../monitor/PriceMonitor.js";
-import { ConsoleNotifier } from "../notification/ConsoleNotifier.js";
+import { createNotifier } from "../notification/createNotifier.js";
 import { FixtureHtmlPriceSource } from "../price-source/FixtureHtmlPriceSource.js";
 import { openDatabase, runMigrations } from "../storage/migrations.js";
 import { SqlitePriceHistoryRepository } from "../storage/SqlitePriceHistoryRepository.js";
@@ -23,7 +23,7 @@ try {
       config,
       priceSource: new FixtureHtmlPriceSource(),
       repository: new SqlitePriceHistoryRepository(db),
-      notifier: new ConsoleNotifier(),
+      notifier: createNotifier(config.notification),
       logger,
     });
 

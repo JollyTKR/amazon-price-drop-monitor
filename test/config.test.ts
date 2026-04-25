@@ -90,4 +90,21 @@ describe("config validation", () => {
       expect(messages).toContain("scheduler.maxConcurrentChecks must be positive");
     }
   });
+
+  it("allows file notifications with a default file path", () => {
+    const result = appConfigSchema.safeParse({
+      ...validConfig,
+      notification: {
+        type: "file",
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.notification).toEqual({
+        type: "file",
+        filePath: "data/notifications.log",
+      });
+    }
+  });
 });

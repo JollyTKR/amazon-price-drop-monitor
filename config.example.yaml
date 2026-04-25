@@ -17,6 +17,9 @@ dropDetection:
 
 notification:
   type: console
+  # Alternative zero-setup option:
+  # type: file
+  # filePath: data/notifications.log
 
 server:
   port: 3000

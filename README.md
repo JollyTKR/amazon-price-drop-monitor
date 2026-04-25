@@ -62,7 +62,7 @@ Configurable values include:
 - price source type, currently `fixture-html`
 - scheduler interval, startup behavior, and max concurrency
 - price-drop thresholds
-- notification type, currently `console`
+- notification type, `console` or `file`
 - dashboard port
 - product list
 
@@ -101,6 +101,25 @@ Type-check the project:
 ```bash
 npm run build
 ```
+
+## Notification Methods
+
+Two zero-setup notification methods are available:
+
+```yaml
+notification:
+  type: console
+```
+
+or:
+
+```yaml
+notification:
+  type: file
+  filePath: data/notifications.log
+```
+
+`console` prints the notification during the check. `file` appends the same readable notification to the configured local file.
 
 ## Run One Check
 
@@ -215,7 +234,7 @@ Verify:
 
 - The default implementation does not scrape live Amazon pages.
 - Only the fixture-backed `PriceSource` is implemented.
-- Only console notifications are implemented.
+- Notification methods are intentionally simple: console output or local file append.
 - The scheduler is in-process, so it is not suitable for multi-instance deployments.
 - There is no authentication on the local dashboard.
 - Duplicate notification prevention across multiple running processes is not implemented.

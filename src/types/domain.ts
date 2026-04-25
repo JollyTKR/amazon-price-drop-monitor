@@ -1,7 +1,7 @@
 export const PRICE_SOURCE_TYPES = ["fixture-html"] as const;
 export type PriceSourceType = (typeof PRICE_SOURCE_TYPES)[number];
 
-export const NOTIFICATION_TYPES = ["console"] as const;
+export const NOTIFICATION_TYPES = ["console", "file"] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export interface DatabaseConfig {
@@ -25,6 +25,7 @@ export interface DropDetectionConfig {
 
 export interface NotificationConfig {
   type: NotificationType;
+  filePath?: string;
 }
 
 export interface ServerConfig {
