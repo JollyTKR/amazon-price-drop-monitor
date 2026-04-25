@@ -22,6 +22,8 @@ describe("web server", () => {
     expect(response.body).toContain("Keyboard");
     expect(response.body).toContain("$79.99");
     expect(response.body).toContain("success");
+    expect(response.body).toContain("<th>History</th>");
+    expect(response.body).toContain("View history");
     expect(response.body).toContain("/products/keyboard/history");
 
     await server.close();

@@ -25,14 +25,16 @@ export function renderDashboardPage(rows: ProductDashboardRow[]): string {
       const statusClass = getStatusClass(status);
       const lastChecked = latestCheck?.checkedAt ?? "never";
       const latestPrice = latestSuccessfulCheck?.priceCents;
+      const historyPath = `/products/${encodeURIComponent(product.id)}/history`;
 
       return `
         <tr>
-          <td><a href="/products/${encodeURIComponent(product.id)}/history">${escapeHtml(product.name)}</a></td>
+          <td>${escapeHtml(product.name)}</td>
           <td><code>${escapeHtml(product.id)}</code></td>
           <td>${formatPrice(latestPrice)}</td>
           <td><span class="status ${statusClass}">${escapeHtml(status)}</span></td>
           <td>${escapeHtml(lastChecked)}</td>
+          <td><a class="action-link" href="${historyPath}">View history</a></td>
           <td><a href="${escapeHtml(product.url)}" rel="noreferrer">Configured URL</a></td>
         </tr>
       `;
@@ -55,6 +57,7 @@ export function renderDashboardPage(rows: ProductDashboardRow[]): string {
               <th>Latest known price</th>
               <th>Latest check status</th>
               <th>Last checked</th>
+              <th>History</th>
               <th>URL</th>
             </tr>
           </thead>
@@ -189,6 +192,10 @@ function renderPage(title: string, body: string): string {
       }
       a {
         color: #0b5cad;
+      }
+      .action-link {
+        font-weight: 700;
+        white-space: nowrap;
       }
       .status {
         display: inline-block;
