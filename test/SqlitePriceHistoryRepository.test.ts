@@ -78,6 +78,11 @@ describe("SqlitePriceHistoryRepository", () => {
       priceCents: 2599,
       checkedAt: "2026-04-24T10:00:00.000Z",
     });
+    expect(repository.getLatestPriceCheck("usb-hub")).toMatchObject({
+      status: "failure",
+      errorMessage: "No price found",
+      checkedAt: "2026-04-24T11:00:00.000Z",
+    });
   });
 
   it("records notifications and returns recent notifications newest first", () => {

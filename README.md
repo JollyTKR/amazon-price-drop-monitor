@@ -73,6 +73,12 @@ npm run test
 npm run build
 ```
 
+`npm run dev` starts the in-process scheduler and the Fastify dashboard. By default the dashboard listens at:
+
+```text
+http://127.0.0.1:3000
+```
+
 `npm run db:init` reads `config.example.yaml` by default and creates or updates the configured SQLite database schema. Pass another config path as an argument when using a local config file:
 
 ```bash

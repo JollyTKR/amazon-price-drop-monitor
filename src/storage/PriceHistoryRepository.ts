@@ -58,6 +58,7 @@ export interface GetRecentNotificationsOptions {
 
 export interface PriceHistoryRepository {
   recordPriceCheck(input: RecordPriceCheckInput): PriceCheckRecord;
+  getLatestPriceCheck(productId: string): PriceCheckRecord | null;
   getLatestSuccessfulPriceCheck(productId: string): PriceCheckRecord | null;
   getPriceHistory(productId: string): PriceCheckRecord[];
   recordNotification(input: RecordNotificationInput): NotificationRecord;

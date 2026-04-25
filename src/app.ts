@@ -11,12 +11,15 @@ import { FixtureHtmlPriceSource } from "./price-source/FixtureHtmlPriceSource.js
 import { openDatabase, runMigrations, type SqliteDatabase } from "./storage/migrations.js";
 import { SqlitePriceHistoryRepository } from "./storage/SqlitePriceHistoryRepository.js";
 import type { AppConfig } from "./types/domain.js";
+import { createWebServer } from "./web/server.js";
+import type { FastifyInstance } from "fastify";
 
 export interface AppRuntime {
   config: AppConfig;
   db: SqliteDatabase;
   monitor: PriceMonitor;
   scheduler: Scheduler;
+  server: FastifyInstance;
   shutdown(): Promise<void>;
 }
 
@@ -47,14 +50,21 @@ export async function createApp(
     runOnStartup: config.scheduler.runOnStartup,
     logger,
   });
+  const server = createWebServer({
+    config,
+    repository,
+    logger,
+  });
 
   return {
     config,
     db,
     monitor,
     scheduler,
+    server,
     async shutdown() {
       await scheduler.stop();
+      await server.close();
       db.close();
     },
   };
@@ -65,6 +75,18 @@ export async function startApp(
   logger: AppLogger = defaultLogger,
 ): Promise<AppRuntime> {
   const runtime = await createApp(configPath, logger);
+  const address = await runtime.server.listen({
+    port: runtime.config.server.port,
+    host: "127.0.0.1",
+  });
+  logger.info(
+    {
+      event: "web_server_started",
+      address,
+      port: runtime.config.server.port,
+    },
+    "Web server started",
+  );
   runtime.scheduler.start();
   return runtime;
 }

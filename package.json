@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Fixture-backed Amazon-like price drop monitor take-home project.",
   "scripts": {
-    "dev": "tsx watch src/app.ts",
+    "dev": "tsx src/app.ts",
     "build": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "check:once": "tsx src/cli/checkOnce.ts",

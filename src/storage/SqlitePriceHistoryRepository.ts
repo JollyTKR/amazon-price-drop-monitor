@@ -92,6 +92,20 @@ export class SqlitePriceHistoryRepository implements PriceHistoryRepository {
     };
   }
 
+  getLatestPriceCheck(productId: string): PriceCheckRecord | null {
+    const row = this.db
+      .prepare<[string]>(`
+        SELECT *
+        FROM price_checks
+        WHERE product_id = ?
+        ORDER BY checked_at DESC, id DESC
+        LIMIT 1
+      `)
+      .get(productId) as PriceCheckRow | undefined;
+
+    return row ? mapPriceCheckRow(row) : null;
+  }
+
   getLatestSuccessfulPriceCheck(productId: string): PriceCheckRecord | null {
     const row = this.db
       .prepare<[string]>(`
