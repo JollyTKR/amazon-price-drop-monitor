@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "tsx src/app.ts",
     "build": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "check:once": "tsx src/cli/checkOnce.ts",
     "db:init": "tsx src/cli/db-init.ts",
     "demo:reset": "tsx src/cli/demoReset.ts",
