@@ -25,6 +25,8 @@ The default implementation is `FixtureHtmlPriceSource`, which reads Amazon-like 
 
 With this default provider, changing the monitored product set is still configuration-driven: a reviewer can add or remove products in YAML, and new products point at new local fixture files. Those fixture files are treated as demo input data. Config validation requires at least 3 products and unique product IDs so history does not collide.
 
+The fixture-backed source is a scope decision, not a claim that fixture data is equivalent to live Amazon data. Live scraping would be legally risky, and requiring an external API would make local review depend on credentials, third-party account setup, and quota. The implemented boundary keeps price acquisition replaceable while making the core monitor workflow fully runnable with no secrets.
+
 ## Storage Schema
 
 SQLite stores two tables:
@@ -48,7 +50,7 @@ Notification results are recorded in SQLite. A thrown notification error is conv
 
 ## Tradeoffs
 
-Fixture-backed HTML vs live Amazon scraping/API provider: I chose local fixtures to respect the brief's legal and ethical constraints while still showing parsing, failure handling, and price-drop behavior. The tradeoff is that this does not prove robustness against live Amazon page changes. A production version should add a compliant API-backed `PriceSource`.
+Fixture-backed HTML vs live Amazon scraping/API provider: I chose local fixtures to respect the brief's legal and ethical constraints while still showing parsing, failure handling, and price-drop behavior. I did not make the default path depend on a paid, trial-limited, or approval-gated API because that would make review harder and less deterministic. The tradeoff is that this does not prove robustness against live Amazon page changes or a real provider's rate limits. A production version should add a compliant API-backed `PriceSource`.
 
 SQLite vs Postgres: SQLite keeps setup simple and durable for a local review. There is no separate database service, and the schema is easy to inspect. At higher scale, I would move to Postgres for concurrent writers, operational tooling, richer query patterns, and stronger multi-process behavior.
 
@@ -61,3 +63,12 @@ In-process scheduler vs external scheduler: `setInterval` is enough for a single
 At 10x product count or beyond, I would replace SQLite with Postgres, introduce a queue-backed worker model, add per-source rate limiting, add retry/backoff policies, and store stronger idempotency keys for checks and notifications. I would also add a compliant API provider, dashboard pagination, duplicate notification protection across workers, and operational metrics beyond logs.
 
 The current project intentionally favors a small, understandable local implementation over production infrastructure.
+
+## Stretch Goals Deferred
+
+I stopped after the core requirements plus a small JSON history API because broad stretch work would reduce confidence in the reviewer flow. The most useful next stretch goals would be:
+
+- Add a compliant API-backed `PriceSource`, keeping credentials out of git and documenting provider-specific quota behavior.
+- Add duplicate-notification protection for multiple workers with database idempotency keys.
+- Add Docker Compose and CI once the local commands are stable.
+- Add live dashboard updates after the static dashboard/API remains reliable.

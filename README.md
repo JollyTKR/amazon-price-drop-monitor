@@ -8,7 +8,9 @@ The goal is not to provide production Amazon scraping. The goal is to show clean
 
 This project does not scrape live Amazon pages by default. Live Amazon scraping can violate Amazon's terms of service and is intentionally avoided here.
 
-Configured products include Amazon-style URLs because that is the project domain, but the default `PriceSource` reads local fixture HTML files. A production version should replace that fixture provider with an approved API or licensed third-party data provider behind the same `PriceSource` interface.
+Configured products include Amazon-style URLs because that is the project domain, but the default `PriceSource` reads local fixture HTML files. The product URLs are stored as product identifiers and shown in notifications/dashboard output; the app does not fetch those URLs.
+
+I also avoided making the default workflow depend on a paid, trial-limited, or approval-gated product API. That would make the reviewer sign up for an external service, manage API keys, and potentially burn quota just to verify the take-home. A production version should replace the fixture provider with an approved API or licensed third-party data provider behind the same `PriceSource` interface.
 
 ## Tech Stack
 
@@ -238,10 +240,19 @@ Verify:
 ## Known Limitations
 
 - The default implementation does not scrape live Amazon pages.
-- Only the fixture-backed `PriceSource` is implemented.
+- Only the fixture-backed `PriceSource` is implemented; no compliant live product-data provider is wired in.
 - Notification methods are intentionally simple: console output or local file append.
 - The scheduler is in-process, so it is not suitable for multi-instance deployments.
 - There is no authentication on the local dashboard.
 - Duplicate notification prevention across multiple running processes is not implemented.
 - The HTML dashboard is intentionally simple and server-rendered.
 - SQLite is appropriate for this local take-home scope, but it is not the storage choice I would assume for a larger distributed system.
+
+## Future Work
+
+I intentionally stopped at the core requirements rather than adding partial stretch goals. Given more time, the next additions I would consider are:
+
+- Compliant live price source: add an API-backed `PriceSource` with credentials loaded from environment variables, source-specific rate limits, caching, retries, and clear provider terms review.
+- Concurrency correctness across workers: add idempotency keys and database constraints so two app instances cannot send duplicate notifications for the same product/drop event.
+- Deployability: add Docker Compose for the app and persistent SQLite volume, plus a CI workflow that runs tests and type-checking.
+- Live-updating dashboard: stream monitor results to the browser with Server-Sent Events or WebSockets after the basic dashboard/API contract is stable.
