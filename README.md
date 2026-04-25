@@ -68,6 +68,8 @@ Configurable values include:
 
 Adding or removing products is a config change. Each product has an `id`, `name`, Amazon-style `url`, and local `fixturePath`.
 
+For the default fixture-backed provider, adding a product also means adding a local HTML fixture file and pointing `fixturePath` at it. That fixture is sample input data for the compliant demo provider, not application code. Product IDs must be unique, and at least 3 products must be configured.
+
 To use your copied config, pass it after `--`:
 
 ```bash

@@ -23,6 +23,8 @@ The monitor checks all configured products with `p-limit`, uses `Promise.allSett
 
 The default implementation is `FixtureHtmlPriceSource`, which reads Amazon-like local fixtures and parses realistic selectors such as `.a-price .a-offscreen`, `#priceblock_ourprice`, and `#priceblock_dealprice`. Missing or malformed prices return controlled failure results instead of throwing through the app. This is intentional because live Amazon scraping is not implemented.
 
+With this default provider, changing the monitored product set is still configuration-driven: a reviewer can add or remove products in YAML, and new products point at new local fixture files. Those fixture files are treated as demo input data. Config validation requires at least 3 products and unique product IDs so history does not collide.
+
 ## Storage Schema
 
 SQLite stores two tables:
