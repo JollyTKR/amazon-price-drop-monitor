@@ -91,6 +91,32 @@ describe("config validation", () => {
     }
   });
 
+  it("requires product ids to be unique", () => {
+    const result = appConfigSchema.safeParse({
+      ...validConfig,
+      products: [
+        validConfig.products[0],
+        {
+          ...validConfig.products[1],
+          id: validConfig.products[0]?.id,
+        },
+        validConfig.products[2],
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Product id "example-1" must be unique',
+            path: ["products", 1, "id"],
+          }),
+        ]),
+      );
+    }
+  });
+
   it("allows file notifications with a default file path", () => {
     const result = appConfigSchema.safeParse({
       ...validConfig,

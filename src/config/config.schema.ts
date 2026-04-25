@@ -63,7 +63,23 @@ export const appConfigSchema = z.object({
     .array(productConfigSchema, {
       error: "products is required and must be an array",
     })
-    .min(3, "At least 3 products must be configured"),
+    .min(3, "At least 3 products must be configured")
+    .superRefine((products, context) => {
+      const seenProductIds = new Set<string>();
+
+      products.forEach((product, index) => {
+        if (seenProductIds.has(product.id)) {
+          context.addIssue({
+            code: "custom",
+            message: `Product id "${product.id}" must be unique`,
+            path: [index, "id"],
+          });
+          return;
+        }
+
+        seenProductIds.add(product.id);
+      });
+    }),
 }) satisfies z.ZodType<AppConfig>;
 
 export type ValidatedAppConfig = z.infer<typeof appConfigSchema>;
