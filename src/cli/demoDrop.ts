@@ -45,3 +45,4 @@ console.log(`Demo drop enabled for ${demoDrop.label}.`);
 console.log(`Product id: ${demoDrop.productId}`);
 console.log(`Override fixture: ${demoDrop.fixturePath}`);
 console.log(`State file: ${statePath}`);
+console.log("Run npm run demo:reset before recording a new baseline.");

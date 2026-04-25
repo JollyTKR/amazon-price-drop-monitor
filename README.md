@@ -159,6 +159,7 @@ The deterministic demo flow uses a local fixture override. No external services 
 From a clean baseline:
 
 ```bash
+npm run demo:reset
 npm run check:once
 npm run demo:drop
 npm run check:once
@@ -166,9 +167,10 @@ npm run check:once
 
 What happens:
 
-1. The first check records the baseline keyboard price from `fixtures/keyboard.html`.
-2. `npm run demo:drop` writes `data/demo-fixture-state.json`, overriding the keyboard product to use `fixtures/demo/keyboard-drop.html`.
-3. The second check reads the lower keyboard fixture and emits a console notification.
+1. `npm run demo:reset` removes any prior local fixture override.
+2. The first check records the baseline keyboard price from `fixtures/keyboard.html`.
+3. `npm run demo:drop` writes `data/demo-fixture-state.json`, overriding the keyboard product to use `fixtures/demo/keyboard-drop.html`.
+4. The second check reads the lower keyboard fixture and emits a console notification.
 
 The demo command defaults to the keyboard product:
 
@@ -182,13 +184,13 @@ Equivalent explicit form:
 npm run demo:drop -- keyboard
 ```
 
-To reset the demo state, delete the generated local state file:
+To reset the demo state, use:
 
 ```bash
-rm data/demo-fixture-state.json
+npm run demo:reset
 ```
 
-Then run `npm run check:once` again to record fixture prices from the default config. Existing SQLite history remains unless you delete or reinitialize the local database.
+This removes the generated local fixture override. Then run `npm run check:once` again to record fixture prices from the default config. Existing SQLite history remains unless you delete or reinitialize the local database.
 
 ## View Price History
 
@@ -217,6 +219,7 @@ For the clearest reviewer flow:
 ```bash
 npm install
 npm run db:init
+npm run demo:reset
 npm run check:once
 npm run demo:drop
 npm run check:once
